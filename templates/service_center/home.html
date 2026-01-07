@@ -1,0 +1,36 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ServiceHub - Главная{% endblock %}
+
+{% block content %}
+<div class="text-center py-5">
+    <img src="{% static 'images/logo.png' %}" alt="ServiceHub Logo" class="mb-4" height="120">
+    <h1 class="display-4 mb-4">Добро пожаловать в ServiceHub</h1>
+    <p class="lead mb-4">Система управления сервисным центром промышленного оборудования</p>
+
+    {% if not user.is_authenticated %}
+        <div class="row justify-content-center mt-5">
+            <div class="col-md-6">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <h5 class="card-title">Вход в систему</h5>
+                        <p class="card-text">Для доступа к системе необходимо войти под своей учетной записью.</p>
+                        <a href="{% url 'login' %}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-box-arrow-in-right"></i> Войти в систему
+                        </a>
+                    </div>
+                </div>
+
+                <div class="mt-4 text-muted">
+                    <p class="small">
+                        <i class="bi bi-info-circle"></i>
+                        Регистрация новых пользователей осуществляется через админ-панель.
+                        <br>Для сброса пароля обратитесь к администратору.
+                    </p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
