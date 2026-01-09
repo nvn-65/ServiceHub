@@ -239,8 +239,8 @@ class ReceptionActAdmin(admin.ModelAdmin):
 
     Акты документируют передачу оборудования от клиента в сервисный центр.
     """
-    list_display = ('act_number', 'client', 'receiver', 'created_at', 'get_equipment_count', 'guarantee_type')
-    list_filter = ('created_at', 'guarantee_type', 'client', 'receiver')
+    list_display = ('act_number', 'client', 'receiver', 'created_at', 'get_equipment_count')
+    list_filter = ('created_at', 'client', 'receiver')
     search_fields = ('act_number', 'client__short_name', 'client__full_name')
     readonly_fields = ('act_number', 'created_at', 'updated_at', 'printed_at')
     autocomplete_fields = ('client', 'receiver')  # Автодополнение для клиента и приёмщика
@@ -249,7 +249,7 @@ class ReceptionActAdmin(admin.ModelAdmin):
     actions = ['mark_as_printed']
     fieldsets = (
         ('Основная информация', {
-            'fields': ('act_number', 'client', 'receiver', 'guarantee_type')
+            'fields': ('act_number', 'client', 'receiver')
         }),
         ('Даты', {
             'fields': ('created_at', 'updated_at', 'printed_at'),

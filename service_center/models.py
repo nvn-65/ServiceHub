@@ -168,11 +168,11 @@ class EquipmentCategory(models.Model):
     Attributes:
         name (CharField): Название категории (обязательное, уникальное)
         description (TextField): Описание категории (необязательное)
-        assigned_specialist (ForeignKey): Ответственный специалист для этой категории
     """
     DEPARTAMENT_CHOICES = [
-        ('NONE', 'Не известно'),
+        ('NONE', 'Не определён'),
         ('MOTOR', 'Цех агрегатов'),
+        ('ELECTRO', 'Цех электроинструмента'),
         ('SMALL', 'Цех малой маханизации'),
         ('ELECTRON', 'Цех электроники')
     ]
@@ -217,7 +217,7 @@ class Brand(models.Model):
     """
 
     # Название бренда/производителя (например, "Bosch", "Resanta")
-    name = models.CharField(max_length=20, unique=True, verbose_name="Название бренда")
+    name = models.CharField(max_length=20, unique=False, verbose_name="Название бренда")
 
     # Категория оборудования, к которой относится бренд
     # on_delete=models.CASCADE: при удалении категории удаляются все её бренды
@@ -321,13 +321,6 @@ class ReceptionAct(models.Model):
         printed_at (DateTimeField): Дата и время печати акта (необязательное)
     """
 
-    # Варианты типов гарантии с отображением на русском языке
-    GUARANTEE_CHOICES = [
-        ('NONE', 'Без гарантии'),
-        ('FACTORY', 'Заводская гарантия'),
-        ('SERVICE', 'Гарантия сервисного центра'),
-    ]
-
     # Уникальный номер акта, генерируется автоматически
     act_number = models.CharField(max_length=50, unique=True, verbose_name="Номер акта")
 
@@ -342,10 +335,6 @@ class ReceptionAct(models.Model):
     # Пользователь, принявший оборудование (приёмщик)
     receiver = models.ForeignKey(User, on_delete=models.PROTECT,
                                  related_name='reception_acts', verbose_name="Приёмщик")
-
-    # Тип гарантии на весь акт (может быть переопределён для каждого оборудования)
-    guarantee_type = models.CharField(max_length=10, choices=GUARANTEE_CHOICES,
-                                      default='NONE', verbose_name="Тип гарантии")
 
     # Дата и время последнего обновления акта
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
@@ -409,7 +398,6 @@ class ReceivedEquipment(models.Model):
         serial_number (CharField): Серийный номер (необязательное)
         inventory_number (CharField): Инвентарный номер клиента (необязательное)
         defect_description (TextField): Описание неисправности со слов клиента
-        audio_description (FileField): Аудиозапись описания неисправности
         guarantee_type (CharField): Тип гарантии для этого оборудования
         assigned_specialist (ForeignKey): Назначенный специалист для ремонта
         status (CharField): Текущий статус оборудования в процессе ремонта
@@ -451,22 +439,16 @@ class ReceivedEquipment(models.Model):
 
     # Серийный номер, присвоенный заводом-изготовителем
     # default="Без номера": значение по умолчанию если номер не указан
-    serial_number = models.CharField(max_length=30, default="Без номера",
+    serial_number = models.CharField(max_length=30, default="---",
                                      blank=True, verbose_name="Серийный номер")
 
     # Инвентарный номер, присвоенный клиентом для внутреннего учёта
-    inventory_number = models.CharField(max_length=30, blank=True, null=True,
+    inventory_number = models.CharField(max_length=30, default="---", blank=True, null=True,
                                         verbose_name="Инвентарный номер")
 
     # Описание проблемы/неисправности со слов клиента
-    defect_description = models.TextField(blank=True, null=True,
+    defect_description = models.CharField(max_length=300, blank=True, null=True,
                                           verbose_name="Описание неисправности")
-
-    # Аудиозапись с описанием проблемы (если клиент записал голосовое сообщение)
-    # upload_to='audio_descriptions/': файлы сохраняются в эту папку в MEDIA_ROOT
-    audio_description = models.FileField(upload_to='audio_descriptions/',
-                                         blank=True, null=True,
-                                         verbose_name="Аудио описание")
 
     # Тип гарантии для этого конкретного оборудования
     guarantee_type = models.CharField(max_length=10, choices=GUARANTEE_CHOICES,
@@ -536,20 +518,6 @@ class ReceivedEquipment(models.Model):
             'ISSUED': 'dark',  # Тёмный
         }
         return colors.get(self.status, 'secondary')
-
-    def get_default_specialist(self):
-        """
-        Получает специалиста по умолчанию для этого оборудования.
-
-        Берет специалиста, назначенного для категории этого оборудования.
-        Используется для автоматического предложения при распределении.
-
-        Returns:
-            UserRole or None: Специалист по умолчанию или None если не назначен
-        """
-        if self.model.category.assigned_specialist:
-            return self.model.category.assigned_specialist
-        return None
 
     class Meta:
         """

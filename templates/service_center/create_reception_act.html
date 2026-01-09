@@ -1,0 +1,1043 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}ServiceHub - Создание акта приёмки{% endblock %}
+
+{% block extra_css %}
+<style>
+    .equipment-block {
+        border: 1px solid #dee2e6;
+        border-radius: 0.375rem;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        position: relative;
+        background-color: #f8f9fa;
+    }
+
+    .remove-equipment {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+    }
+
+    .form-select:disabled {
+        background-color: #e9ecef;
+        opacity: 0.6;
+    }
+
+    .equipment-header {
+        font-weight: bold;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #dee2e6;
+    }
+
+    .add-new-option {
+        color: #0d6efd;
+        font-style: italic;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <!-- Заголовок Акта -->
+    <div class="row mb-4">
+        <div class="col">
+            <h1 class="h3 mb-0">
+                <i class="bi bi-clipboard-check text-primary"></i>
+                Акт № {{ act_number }} от {{ formatted_date }}
+            </h1>
+        </div>
+    </div>
+
+    <form method="post" id="receptionForm">
+        {% csrf_token %}
+        <input type="hidden" name="equipment_count" id="equipmentCount" value="1">
+
+        <!-- Информация о клиенте -->
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-person"></i> Информация о клиенте</h5>
+                <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#newClientModal">
+                    <i class="bi bi-plus-circle"></i> Новый клиент
+                </button>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label class="form-label">Клиент</label>
+                            <select class="form-select" id="clientSelect" name="client_id" required>
+                                <option value="">Выберите клиента...</option>
+                                {% for client in clients %}
+                                    <option value="{{ client.id }}"
+                                            data-contact-person="{{ client.contact_person }}"
+                                            data-phone="{{ client.phone }}"
+                                            data-email="{{ client.email }}">
+                                        {{ client.short_name }} ({{ client.full_name }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">E-mail</label>
+                            <input type="email" id="email" name="email" class="form-control" placeholder="Электронная почта">
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Имя</label>
+                            <input type="text" id="name" name="contact_person" class="form-control" placeholder="Ответственное лицо">
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone" class="form-label">Телефон</label>
+                            <input type="text" id="phone" name="phone" class="form-control" placeholder="Телефон ответственного лица">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Ввод информации об оборудовании -->
+        <div class="card mb-4">
+            <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-tools"></i> Оборудование</h5>
+                <button type="button" class="btn btn-light btn-sm" id="addEquipmentBtn">
+                    <i class="bi bi-plus-circle"></i> Добавить оборудование
+                </button>
+            </div>
+            <div class="card-body">
+                <div id="equipmentContainer">
+                    <!-- Блоки оборудования будут добавляться здесь -->
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'roles' %}" class="btn btn-secondary">Отмена</a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-save"></i> Сохранить Акт
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Модальное окно для нового клиента -->
+<div class="modal fade" id="newClientModal" tabindex="-1" aria-labelledby="newClientModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newClientModalLabel">Добавление нового клиента</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newClientForm">
+                    <div class="mb-3">
+                        <label for="newShortName" class="form-label">Краткое наименование *</label>
+                        <input type="text" class="form-control" id="newShortName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newFullName" class="form-label">Полное наименование *</label>
+                        <input type="text" class="form-control" id="newFullName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newContactPerson" class="form-label">Контактное лицо</label>
+                        <input type="text" class="form-control" id="newContactPerson">
+                    </div>
+                    <div class="mb-3">
+                        <label for="newPhone" class="form-label">Телефон</label>
+                        <input type="text" class="form-control" id="newPhone">
+                    </div>
+                    <div class="mb-3">
+                        <label for="newEmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="newEmail">
+                    </div>
+                    <div class="mb-3">
+                        <label for="newAddress" class="form-label">Адрес</label>
+                        <textarea class="form-control" id="newAddress" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveNewClientBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для новой категории -->
+<div class="modal fade" id="newCategoryModal" tabindex="-1" aria-labelledby="newCategoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newCategoryModalLabel">Добавление новой категории оборудования</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newCategoryForm">
+                    <div class="mb-3">
+                        <label for="newCategoryName" class="form-label">Название категории *</label>
+                        <input type="text" class="form-control" id="newCategoryName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newCategoryDepartment" class="form-label">Цех обслуживания</label>
+                        <select class="form-select" id="newCategoryDepartment">
+                            <option value="NONE">Не определён</option>
+                            <option value="MOTOR">Цех агрегатов</option>
+                            <option value="ELECTRO">Цех электроинструмента</option>
+                            <option value="SMALL">Цех малой механизации</option>
+                            <option value="ELECTRON">Цех электроники</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newCategoryDescription" class="form-label">Описание</label>
+                        <textarea class="form-control" id="newCategoryDescription" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveNewCategoryBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для нового бренда -->
+<div class="modal fade" id="newBrandModal" tabindex="-1" aria-labelledby="newBrandModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newBrandModalLabel">Добавление нового бренда</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newBrandForm">
+                    <input type="hidden" id="newBrandCategoryId">
+                    <div class="mb-3">
+                        <label for="newBrandCategoryName" class="form-label">Категория</label>
+                        <input type="text" class="form-control" id="newBrandCategoryName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newBrandName" class="form-label">Название бренда *</label>
+                        <input type="text" class="form-control" id="newBrandName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newBrandDescription" class="form-label">Описание</label>
+                        <textarea class="form-control" id="newBrandDescription" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveNewBrandBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для новой модели -->
+<div class="modal fade" id="newModelModal" tabindex="-1" aria-labelledby="newModelModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="newModelModalLabel">Добавление новой модели</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="newModelForm">
+                    <input type="hidden" id="newModelBrandId">
+                    <input type="hidden" id="newModelCategoryId">
+                    <div class="mb-3">
+                        <label for="newModelCategoryName" class="form-label">Категория</label>
+                        <input type="text" class="form-control" id="newModelCategoryName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newModelBrandName" class="form-label">Бренд</label>
+                        <input type="text" class="form-control" id="newModelBrandName" readonly>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newModelName" class="form-label">Название модели *</label>
+                        <input type="text" class="form-control" id="newModelName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newModelDescription" class="form-label">Описание</label>
+                        <textarea class="form-control" id="newModelDescription" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                <button type="button" class="btn btn-primary" id="saveNewModelBtn">Сохранить</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Шаблон для блока оборудования -->
+<template id="equipmentTemplate">
+    <div class="equipment-block">
+        <button type="button" class="btn btn-danger btn-sm remove-equipment">
+            <i class="bi bi-trash"></i> Удалить
+        </button>
+
+        <div class="equipment-header">Оборудование #<span class="equipment-index">1</span></div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-sm">
+                <label class="form-label">Категория оборудования</label>
+                <select class="form-select equipment-category" required>
+                    <option value="">Выбрать категорию...</option>
+                    {% for category in categories %}
+                        <option value="{{ category.id }}">{{ category.name }}</option>
+                    {% endfor %}
+                    <option disabled>──────────</option>
+                    <option value="new_category" class="add-new-option">+ Добавить новую категорию...</option>
+                </select>
+            </div>
+            <div class="col-sm">
+                <label class="form-label">Бренд производителя</label>
+                <select class="form-select equipment-brand" disabled required>
+                    <option value="">Сначала выберите категорию...</option>
+                </select>
+            </div>
+            <div class="col-sm">
+                <label class="form-label">Модель оборудования</label>
+                <select class="form-select equipment-model" disabled required>
+                    <option value="">Сначала выберите бренд...</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+            <div class="col-sm">
+                <label class="form-label">Серийный номер</label>
+                <input type="text" class="form-control equipment-serial-number" placeholder="Серийный номер оборудования">
+            </div>
+            <div class="col-sm">
+                <label class="form-label">Инвентарный номер</label>
+                <input type="text" class="form-control equipment-inventory-number" placeholder="Инвентарный номер оборудования">
+            </div>
+            <div class="col-sm">
+                <label class="form-label">Гарантия</label>
+                <select class="form-select equipment-guarantee-type" required>
+                    <option value="NONE">Указать наличие гарантии...</option>
+                    <option value="NONE">Без гарантии</option>
+                    <option value="FACTORY">Заводская гарантия</option>
+                    <option value="SERVICE">Гарантия сервисного центра</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Описание неисправности</label>
+            <textarea class="form-control equipment-defect-description" rows="2" placeholder="Со слов клиента..."></textarea>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Данные для зависимых списков
+    const brandsByCategory = {{ brands_by_category|safe }};
+    const modelsByBrand = {{ models_by_brand|safe }};
+
+    // Счетчик оборудования
+    let equipmentCounter = 0;
+    // Переменные для хранения контекста
+    let currentBlockForCategory = null;
+    let currentBlockForBrand = null;
+    let currentBlockForModel = null;
+
+    // Инициализация при загрузке страницы
+    document.addEventListener('DOMContentLoaded', function() {
+        // Добавляем первый блок оборудования
+        addEquipmentBlock();
+
+        // Обработчик выбора клиента
+        const clientSelect = document.getElementById('clientSelect');
+        clientSelect.addEventListener('change', function() {
+            const selectedOption = this.options[this.selectedIndex];
+            if (selectedOption.value) {
+                document.getElementById('name').value = selectedOption.dataset.contactPerson || '';
+                document.getElementById('phone').value = selectedOption.dataset.phone || '';
+                document.getElementById('email').value = selectedOption.dataset.email || '';
+            }
+        });
+
+        // Обработчик кнопки добавления оборудования
+        document.getElementById('addEquipmentBtn').addEventListener('click', addEquipmentBlock);
+
+        // Обработчики сохранения
+        document.getElementById('saveNewClientBtn').addEventListener('click', saveNewClient);
+        document.getElementById('saveNewCategoryBtn').addEventListener('click', saveNewCategory);
+        document.getElementById('saveNewBrandBtn').addEventListener('click', saveNewBrand);
+        document.getElementById('saveNewModelBtn').addEventListener('click', saveNewModel);
+
+        // Обработчик отправки формы
+        document.getElementById('receptionForm').addEventListener('submit', prepareFormData);
+    });
+
+    // Функция добавления блока оборудования
+    function addEquipmentBlock() {
+        const template = document.getElementById('equipmentTemplate');
+        const clone = template.content.cloneNode(true);
+        const block = clone.querySelector('.equipment-block');
+
+        // Устанавливаем индекс для полей
+        const index = equipmentCounter;
+        updateEquipmentBlockFields(block, index);
+
+        // Добавляем в контейнер
+        document.getElementById('equipmentContainer').appendChild(block);
+
+        // Добавляем обработчики для зависимых списков
+        setupEquipmentBlockListeners(block);
+
+        // Обновляем счетчик
+        equipmentCounter++;
+        document.getElementById('equipmentCount').value = equipmentCounter;
+    }
+
+    // Функция обновления имен полей в блоке оборудования
+    function updateEquipmentBlockFields(block, index) {
+        const fields = block.querySelectorAll('[class*="equipment-"]');
+        fields.forEach(field => {
+            const classList = Array.from(field.classList);
+            const equipmentClass = classList.find(c => c.startsWith('equipment-'));
+            if (equipmentClass) {
+                let fieldName = equipmentClass.replace('equipment-', '').replace(/-/g, '_');
+
+                if (field.tagName === 'SELECT' || field.tagName === 'INPUT' || field.tagName === 'TEXTAREA') {
+                    field.name = `equipment_${index}_${fieldName}`;
+                    field.id = `equipment_${index}_${fieldName}`;
+                }
+            }
+        });
+
+        // Обновляем номер оборудования в заголовке
+        const indexSpan = block.querySelector('.equipment-index');
+        if (indexSpan) {
+            indexSpan.textContent = index + 1;
+        }
+
+        // Обработчик кнопки удаления
+        const removeBtn = block.querySelector('.remove-equipment');
+        removeBtn.addEventListener('click', function() {
+            if (equipmentCounter > 1) {
+                block.remove();
+                equipmentCounter--;
+                document.getElementById('equipmentCount').value = equipmentCounter;
+                // Перенумеровываем оставшиеся блоки
+                renumberEquipmentBlocks();
+            } else {
+                alert('Должен остаться хотя бы один блок оборудования');
+            }
+        });
+    }
+
+    // Функция перенумерации блоков оборудования
+    function renumberEquipmentBlocks() {
+        const blocks = document.querySelectorAll('.equipment-block');
+        blocks.forEach((block, index) => {
+            // Обновляем имена полей
+            updateEquipmentBlockFields(block, index);
+
+            // Обновляем номер в заголовке
+            const indexSpan = block.querySelector('.equipment-index');
+            if (indexSpan) {
+                indexSpan.textContent = index + 1;
+            }
+        });
+    }
+
+    // Функция настройки обработчиков для блока оборудования
+    function setupEquipmentBlockListeners(block) {
+        const categorySelect = block.querySelector('.equipment-category');
+        const brandSelect = block.querySelector('.equipment-brand');
+        const modelSelect = block.querySelector('.equipment-model');
+
+        // Обработчик изменения категории
+        categorySelect.addEventListener('change', function() {
+            const categoryId = this.value;
+
+            // Проверяем, не выбрана ли опция добавления новой категории
+            if (categoryId === 'new_category') {
+                // Открываем модальное окно для новой категории
+                currentBlockForCategory = block;
+                document.getElementById('newCategoryForm').reset();
+                const modal = new bootstrap.Modal(document.getElementById('newCategoryModal'));
+                modal.show();
+                return;
+            }
+
+            // Очищаем и отключаем бренды
+            brandSelect.innerHTML = '<option value="">Выбрать бренд...</option>';
+            brandSelect.disabled = true;
+
+            // Очищаем и отключаем модели
+            modelSelect.innerHTML = '<option value="">Выбрать модель...</option>';
+            modelSelect.disabled = true;
+
+            if (categoryId) {
+                // Проверяем, есть ли бренды для этой категории в нашем кэше
+                if (brandsByCategory[categoryId] && brandsByCategory[categoryId].length > 0) {
+                    // Заполняем бренды из кэша
+                    brandsByCategory[categoryId].forEach(brand => {
+                        const option = document.createElement('option');
+                        option.value = brand.id;
+                        option.textContent = brand.name;
+                        brandSelect.appendChild(option);
+                    });
+
+                    // Добавляем опцию для нового бренда
+                    const separator = document.createElement('option');
+                    separator.disabled = true;
+                    separator.textContent = '──────────';
+                    brandSelect.appendChild(separator);
+
+                    const newBrandOption = document.createElement('option');
+                    newBrandOption.value = 'new_brand';
+                    newBrandOption.className = 'add-new-option';
+                    newBrandOption.textContent = '+ Добавить новый бренд...';
+                    brandSelect.appendChild(newBrandOption);
+
+                    // Активируем бренды
+                    brandSelect.disabled = false;
+                } else {
+                    // Если в кэше нет брендов для этой категории
+                    // Добавляем только опцию для добавления нового бренда
+                    const separator = document.createElement('option');
+                    separator.disabled = true;
+                    separator.textContent = '──────────';
+                    brandSelect.appendChild(separator);
+
+                    const newBrandOption = document.createElement('option');
+                    newBrandOption.value = 'new_brand';
+                    newBrandOption.className = 'add-new-option';
+                    newBrandOption.textContent = '+ Добавить новый бренд...';
+                    brandSelect.appendChild(newBrandOption);
+
+                    // Активируем бренды
+                    brandSelect.disabled = false;
+                }
+            }
+        });
+
+        // Обработчик изменения бренда
+brandSelect.addEventListener('change', function() {
+    const brandId = this.value;
+
+    // Проверяем, не выбрана ли опция добавления нового бренда
+    if (brandId === 'new_brand') {
+        // Получаем выбранную категорию
+        const categoryId = categorySelect.value;
+        if (!categoryId || categoryId === 'new_category') {
+            alert('Сначала выберите категорию');
+            this.value = '';
+            return;
+        }
+
+        // Находим название категории
+        const categoryOption = categorySelect.options[categorySelect.selectedIndex];
+        const categoryName = categoryOption ? categoryOption.textContent : '';
+
+        // Открываем модальное окно для нового бренда
+        currentBlockForBrand = block;
+
+        // Сначала сбрасываем форму
+        document.getElementById('newBrandForm').reset();
+
+        // Затем устанавливаем значения
+        document.getElementById('newBrandCategoryId').value = categoryId;
+        document.getElementById('newBrandCategoryName').value = categoryName;
+
+        // Очищаем поле названия бренда
+        document.getElementById('newBrandName').value = '';
+
+        const modal = new bootstrap.Modal(document.getElementById('newBrandModal'));
+        modal.show();
+        return;
+    }
+
+    // Очищаем и отключаем модели
+    modelSelect.innerHTML = '<option value="">Выбрать модель...</option>';
+    modelSelect.disabled = true;
+
+    if (brandId) {
+        // Проверяем, есть ли модели для этого бренда в нашем кэше
+        if (modelsByBrand[brandId] && modelsByBrand[brandId].length > 0) {
+            // Заполняем модели из кэша
+            modelsByBrand[brandId].forEach(model => {
+                const option = document.createElement('option');
+                option.value = model.id;
+                option.textContent = model.name;
+                modelSelect.appendChild(option);
+            });
+
+            // Добавляем опцию для новой модели
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.textContent = '──────────';
+            modelSelect.appendChild(separator);
+
+            const newModelOption = document.createElement('option');
+            newModelOption.value = 'new_model';
+            newModelOption.className = 'add-new-option';
+            newModelOption.textContent = '+ Добавить новую модель...';
+            modelSelect.appendChild(newModelOption);
+
+            // Активируем модели
+            modelSelect.disabled = false;
+        } else {
+            // Если в кэше нет моделей для этого бренда
+            // Добавляем только опцию для добавления новой модели
+            const separator = document.createElement('option');
+            separator.disabled = true;
+            separator.textContent = '──────────';
+            modelSelect.appendChild(separator);
+
+            const newModelOption = document.createElement('option');
+            newModelOption.value = 'new_model';
+            newModelOption.className = 'add-new-option';
+            newModelOption.textContent = '+ Добавить новую модель...';
+            modelSelect.appendChild(newModelOption);
+
+            // Активируем модели
+            modelSelect.disabled = false;
+        }
+    }
+});
+
+        // Обработчик изменения модели
+modelSelect.addEventListener('change', function() {
+    const modelId = this.value;
+
+    // Проверяем, не выбрана ли опция добавления новой модели
+    if (modelId === 'new_model') {
+        // Получаем выбранный бренд
+        const brandId = brandSelect.value;
+        if (!brandId || brandId === 'new_brand') {
+            alert('Сначала выберите бренд');
+            this.value = '';
+            return;
+        }
+
+        // Получаем выбранную категорию
+        const categoryId = categorySelect.value;
+        if (!categoryId) {
+            alert('Сначала выберите категорию');
+            this.value = '';
+            return;
+        }
+
+        // Находим название категории и бренда
+        const categoryOption = categorySelect.options[categorySelect.selectedIndex];
+        const brandOption = brandSelect.options[brandSelect.selectedIndex];
+        const categoryName = categoryOption ? categoryOption.textContent : '';
+        const brandName = brandOption ? brandOption.textContent : '';
+
+        // Открываем модальное окно для новой модели
+        currentBlockForModel = block;
+
+        // Сначала сбрасываем форму
+        document.getElementById('newModelForm').reset();
+
+        // Затем устанавливаем значения
+        document.getElementById('newModelBrandId').value = brandId;
+        document.getElementById('newModelCategoryId').value = categoryId;
+        document.getElementById('newModelCategoryName').value = categoryName;
+        document.getElementById('newModelBrandName').value = brandName;
+
+        // Очищаем поле названия модели
+        document.getElementById('newModelName').value = '';
+
+        const modal = new bootstrap.Modal(document.getElementById('newModelModal'));
+        modal.show();
+        return;
+    }
+});
+    }
+
+    // Функция сохранения нового клиента
+    function saveNewClient() {
+        const shortName = document.getElementById('newShortName').value.trim();
+        const fullName = document.getElementById('newFullName').value.trim();
+        const contactPerson = document.getElementById('newContactPerson').value.trim();
+        const phone = document.getElementById('newPhone').value.trim();
+        const email = document.getElementById('newEmail').value.trim();
+        const address = document.getElementById('newAddress').value.trim();
+
+        if (!shortName || !fullName) {
+            alert('Пожалуйста, заполните обязательные поля (Краткое и Полное наименование)');
+            return;
+        }
+
+        fetch('{% url "add_client" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                short_name: shortName,
+                full_name: fullName,
+                contact_person: contactPerson,
+                phone: phone,
+                email: email,
+                address: address
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Добавляем нового клиента в выпадающий список
+                const clientSelect = document.getElementById('clientSelect');
+                const option = document.createElement('option');
+                option.value = data.client.id;
+                option.textContent = data.client.short_name + ' (' + data.client.full_name + ')';
+                option.dataset.contactPerson = data.client.contact_person;
+                option.dataset.phone = data.client.phone;
+                option.dataset.email = data.client.email;
+                clientSelect.appendChild(option);
+
+                // Выбираем нового клиента
+                clientSelect.value = data.client.id;
+
+                // Заполняем поля данными нового клиента
+                document.getElementById('name').value = data.client.contact_person;
+                document.getElementById('phone').value = data.client.phone;
+                document.getElementById('email').value = data.client.email;
+
+                // Закрываем модальное окно и очищаем форму
+                const modal = bootstrap.Modal.getInstance(document.getElementById('newClientModal'));
+                modal.hide();
+                document.getElementById('newClientForm').reset();
+
+                alert('Клиент успешно добавлен!');
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при сохранении клиента');
+        });
+    }
+
+    // Функция сохранения новой категории
+    function saveNewCategory() {
+        const name = document.getElementById('newCategoryName').value.trim();
+        const department = document.getElementById('newCategoryDepartment').value;
+        const description = document.getElementById('newCategoryDescription').value.trim();
+
+        if (!name) {
+            alert('Пожалуйста, введите название категории');
+            return;
+        }
+
+        fetch('{% url "add_category" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                name: name,
+                department: department,
+                description: description
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Закрываем модальное окно
+                const modal = bootstrap.Modal.getInstance(document.getElementById('newCategoryModal'));
+                modal.hide();
+                document.getElementById('newCategoryForm').reset();
+
+                // Добавляем пустой массив для брендов этой категории в кэш
+                brandsByCategory[data.category.id] = [];
+
+                // Обновляем выпадающий список категорий в текущем блоке
+                if (currentBlockForCategory) {
+                    const categorySelect = currentBlockForCategory.querySelector('.equipment-category');
+
+                    // Добавляем новую категорию в список
+                    const option = document.createElement('option');
+                    option.value = data.category.id;
+                    option.textContent = data.category.name;
+                    categorySelect.insertBefore(option, categorySelect.querySelector('.add-new-option'));
+
+                    // Выбираем новую категорию
+                    categorySelect.value = data.category.id;
+
+                    // Триггерим изменение, чтобы обновить бренды
+                    categorySelect.dispatchEvent(new Event('change'));
+                }
+
+                alert('Категория успешно добавлена! Теперь вы можете добавить бренд для этой категории.');
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при сохранении категории');
+        });
+    }
+
+    // Функция сохранения нового бренда
+    function saveNewBrand() {
+        const name = document.getElementById('newBrandName').value.trim();
+        const categoryId = document.getElementById('newBrandCategoryId').value;
+        const description = document.getElementById('newBrandDescription').value.trim();
+
+        if (!name) {
+            alert('Пожалуйста, введите название бренда');
+            return;
+        }
+
+        if (!categoryId) {
+            alert('Ошибка: не выбрана категория');
+            return;
+        }
+
+        fetch('{% url "add_brand" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                name: name,
+                category_id: categoryId,
+                description: description
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Закрываем модальное окно
+                const modal = bootstrap.Modal.getInstance(document.getElementById('newBrandModal'));
+                modal.hide();
+                document.getElementById('newBrandForm').reset();
+
+                // Обновляем данные в brandsByCategory
+                if (!brandsByCategory[categoryId]) {
+                    brandsByCategory[categoryId] = [];
+                }
+                // Добавляем новый бренд в массив, если его там еще нет
+                if (!brandsByCategory[categoryId].some(brand => brand.id === data.brand.id)) {
+                    brandsByCategory[categoryId].push({
+                        id: data.brand.id,
+                        name: data.brand.name
+                    });
+                }
+
+                // Добавляем пустой массив для моделей этого бренда в кэш
+                modelsByBrand[data.brand.id] = [];
+
+                // Обновляем выпадающий список брендов в текущем блоке
+                if (currentBlockForBrand) {
+                    const brandSelect = currentBlockForBrand.querySelector('.equipment-brand');
+
+                    // Очищаем список (кроме первого option)
+                    brandSelect.innerHTML = '<option value="">Выбрать бренд...</option>';
+
+                    // Заполняем бренды для выбранной категории
+                    if (brandsByCategory[categoryId]) {
+                        brandsByCategory[categoryId].forEach(brand => {
+                            const option = document.createElement('option');
+                            option.value = brand.id;
+                            option.textContent = brand.name;
+                            brandSelect.appendChild(option);
+                        });
+                    }
+
+                    // Добавляем разделитель и опцию для нового бренда
+                    const separator = document.createElement('option');
+                    separator.disabled = true;
+                    separator.textContent = '──────────';
+                    brandSelect.appendChild(separator);
+
+                    const newBrandOption = document.createElement('option');
+                    newBrandOption.value = 'new_brand';
+                    newBrandOption.className = 'add-new-option';
+                    newBrandOption.textContent = '+ Добавить новый бренд...';
+                    brandSelect.appendChild(newBrandOption);
+
+                    // Выбираем новый бренд
+                    brandSelect.value = data.brand.id;
+
+                    // Триггерим изменение, чтобы обновить модели
+                    brandSelect.dispatchEvent(new Event('change'));
+                }
+
+                alert('Бренд успешно добавлен! Теперь вы можете добавить модель для этого бренда.');
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при сохранении бренда');
+        });
+    }
+
+    // Функция сохранения новой модели
+    function saveNewModel() {
+        const name = document.getElementById('newModelName').value.trim();
+        const brandId = document.getElementById('newModelBrandId').value;
+        const categoryId = document.getElementById('newModelCategoryId').value;
+        const description = document.getElementById('newModelDescription').value.trim();
+
+        if (!name) {
+            alert('Пожалуйста, введите название модели');
+            return;
+        }
+
+        if (!brandId) {
+            alert('Ошибка: не выбран бренд');
+            return;
+        }
+
+        fetch('{% url "add_model" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                name: name,
+                brand_id: brandId,
+                category_id: categoryId,
+                description: description
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Закрываем модальное окно
+                const modal = bootstrap.Modal.getInstance(document.getElementById('newModelModal'));
+                modal.hide();
+                document.getElementById('newModelForm').reset();
+
+                // Обновляем данные в modelsByBrand
+                if (!modelsByBrand[brandId]) {
+                    modelsByBrand[brandId] = [];
+                }
+                // Добавляем новую модель в массив, если ее там еще нет
+                if (!modelsByBrand[brandId].some(model => model.id === data.model.id)) {
+                    modelsByBrand[brandId].push({
+                        id: data.model.id,
+                        name: data.model.name
+                    });
+                }
+
+                // Обновляем выпадающий список моделей в текущем блоке
+                if (currentBlockForModel) {
+                    const modelSelect = currentBlockForModel.querySelector('.equipment-model');
+
+                    // Очищаем список (кроме первого option)
+                    modelSelect.innerHTML = '<option value="">Выбрать модель...</option>';
+
+                    // Заполняем модели для выбранного бренда
+                    if (modelsByBrand[brandId]) {
+                        modelsByBrand[brandId].forEach(model => {
+                            const option = document.createElement('option');
+                            option.value = model.id;
+                            option.textContent = model.name;
+                            modelSelect.appendChild(option);
+                        });
+                    }
+
+                    // Добавляем разделитель и опцию для новой модели
+                    const separator = document.createElement('option');
+                    separator.disabled = true;
+                    separator.textContent = '──────────';
+                    modelSelect.appendChild(separator);
+
+                    const newModelOption = document.createElement('option');
+                    newModelOption.value = 'new_model';
+                    newModelOption.className = 'add-new-option';
+                    newModelOption.textContent = '+ Добавить новую модель...';
+                    modelSelect.appendChild(newModelOption);
+
+                    // Выбираем новую модель
+                    modelSelect.value = data.model.id;
+                }
+
+                alert('Модель успешно добавлена!');
+            } else {
+                alert('Ошибка: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Произошла ошибка при сохранении модели');
+        });
+    }
+
+    // Функция подготовки данных формы перед отправкой
+    function prepareFormData(event) {
+        // Проверяем, выбран ли клиент
+        const clientSelect = document.getElementById('clientSelect');
+        if (!clientSelect.value) {
+            event.preventDefault();
+            alert('Пожалуйста, выберите клиента');
+            clientSelect.focus();
+            return;
+        }
+
+        // Проверяем, что хотя бы одно оборудование выбрано
+        const equipmentBlocks = document.querySelectorAll('.equipment-block');
+        let hasValidEquipment = false;
+
+        equipmentBlocks.forEach(block => {
+            const modelSelect = block.querySelector('.equipment-model');
+            if (modelSelect && modelSelect.value && modelSelect.value !== 'new_model') {
+                hasValidEquipment = true;
+            }
+        });
+
+        if (!hasValidEquipment) {
+            event.preventDefault();
+            alert('Пожалуйста, добавьте и выберите хотя бы одно оборудование');
+            return;
+        }
+
+        // Проверяем, чтобы не было выбранных опций "добавить новую..."
+        equipmentBlocks.forEach(block => {
+            const categorySelect = block.querySelector('.equipment-category');
+            const brandSelect = block.querySelector('.equipment-brand');
+            const modelSelect = block.querySelector('.equipment-model');
+
+            if (categorySelect && categorySelect.value === 'new_category') {
+                event.preventDefault();
+                alert('Пожалуйста, выберите существующую категорию или добавьте новую');
+                categorySelect.focus();
+                return;
+            }
+
+            if (brandSelect && brandSelect.value === 'new_brand') {
+                event.preventDefault();
+                alert('Пожалуйста, выберите существующий бренд или добавьте новый');
+                brandSelect.focus();
+                return;
+            }
+
+            if (modelSelect && modelSelect.value === 'new_model') {
+                event.preventDefault();
+                alert('Пожалуйста, выберите существующую модель или добавьте новую');
+                modelSelect.focus();
+                return;
+            }
+        });
+    }
+</script>
+{% endblock %}

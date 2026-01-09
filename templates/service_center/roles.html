@@ -51,7 +51,7 @@
                             <div class="mt-auto">
                                 <div class="d-grid gap-2">
                                     {% if user_role.role.name == 'Приёмщик' %}
-                                        <a href="#" class="btn btn-primary">
+                                        <a href="{% url 'create_reception_act' %}" class="btn btn-primary">
                                             <i class="bi bi-clipboard-check"></i> Приёмка оборудования
                                         </a>
                                     {% elif user_role.role.name == 'Координатор' %}
