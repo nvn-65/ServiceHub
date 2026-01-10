@@ -692,6 +692,7 @@ modelSelect.addEventListener('change', function() {
                 address: address
             })
         })
+
         .then(response => response.json())
         .then(data => {
             if (data.success) {
@@ -982,62 +983,70 @@ modelSelect.addEventListener('change', function() {
             alert('Произошла ошибка при сохранении модели');
         });
     }
-
     // Функция подготовки данных формы перед отправкой
+
     function prepareFormData(event) {
-        // Проверяем, выбран ли клиент
-        const clientSelect = document.getElementById('clientSelect');
-        if (!clientSelect.value) {
-            event.preventDefault();
-            alert('Пожалуйста, выберите клиента');
-            clientSelect.focus();
-            return;
-        }
+    event.preventDefault(); // Добавляем preventDefault
 
-        // Проверяем, что хотя бы одно оборудование выбрано
-        const equipmentBlocks = document.querySelectorAll('.equipment-block');
-        let hasValidEquipment = false;
-
-        equipmentBlocks.forEach(block => {
-            const modelSelect = block.querySelector('.equipment-model');
-            if (modelSelect && modelSelect.value && modelSelect.value !== 'new_model') {
-                hasValidEquipment = true;
-            }
-        });
-
-        if (!hasValidEquipment) {
-            event.preventDefault();
-            alert('Пожалуйста, добавьте и выберите хотя бы одно оборудование');
-            return;
-        }
-
-        // Проверяем, чтобы не было выбранных опций "добавить новую..."
-        equipmentBlocks.forEach(block => {
-            const categorySelect = block.querySelector('.equipment-category');
-            const brandSelect = block.querySelector('.equipment-brand');
-            const modelSelect = block.querySelector('.equipment-model');
-
-            if (categorySelect && categorySelect.value === 'new_category') {
-                event.preventDefault();
-                alert('Пожалуйста, выберите существующую категорию или добавьте новую');
-                categorySelect.focus();
-                return;
-            }
-
-            if (brandSelect && brandSelect.value === 'new_brand') {
-                event.preventDefault();
-                alert('Пожалуйста, выберите существующий бренд или добавьте новый');
-                brandSelect.focus();
-                return;
-            }
-
-            if (modelSelect && modelSelect.value === 'new_model') {
-                event.preventDefault();
-                alert('Пожалуйста, выберите существующую модель или добавьте новую');
-                modelSelect.focus();
-                return;
-            }
-        });
+    // Проверяем, выбран ли клиент
+    const clientSelect = document.getElementById('clientSelect');
+    if (!clientSelect.value) {
+        alert('Пожалуйста, выберите клиента');
+        clientSelect.focus();
+        return false;
     }
+
+    // Проверяем, что хотя бы одно оборудование выбрано
+    const equipmentBlocks = document.querySelectorAll('.equipment-block');
+    let hasValidEquipment = false;
+    let hasInvalidSelections = false;
+
+    equipmentBlocks.forEach(block => {
+        const categorySelect = block.querySelector('.equipment-category');
+        const brandSelect = block.querySelector('.equipment-brand');
+        const modelSelect = block.querySelector('.equipment-model');
+
+        // Проверяем на опции "добавить новую..."
+        if (categorySelect && categorySelect.value === 'new_category') {
+            alert('Пожалуйста, выберите существующую категорию или добавьте новую');
+            categorySelect.focus();
+            hasInvalidSelections = true;
+            return;
+        }
+
+        if (brandSelect && brandSelect.value === 'new_brand') {
+            alert('Пожалуйста, выберите существующий бренд или добавьте новый');
+            brandSelect.focus();
+            hasInvalidSelections = true;
+            return;
+        }
+
+        if (modelSelect && modelSelect.value === 'new_model') {
+            alert('Пожалуйста, выберите существующую модель или добавьте новую');
+            modelSelect.focus();
+            hasInvalidSelections = true;
+            return;
+        }
+
+        // Проверяем, что модель выбрана (не пустая строка)
+        if (modelSelect && modelSelect.value && modelSelect.value !== 'new_model') {
+            hasValidEquipment = true;
+        }
+    });
+
+    if (hasInvalidSelections) {
+        return false;
+    }
+
+    if (!hasValidEquipment) {
+        alert('Пожалуйста, добавьте и выберите хотя бы одно оборудование');
+        return false;
+    }
+
+    // Если все проверки пройдены, отправляем форму
+    document.getElementById('receptionForm').submit();
+    return true;
+}
+
 </script>
 {% endblock %}

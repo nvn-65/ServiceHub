@@ -317,7 +317,7 @@ class ReceivedEquipmentAdmin(admin.ModelAdmin):
             'fields': ('reception_act', 'model', 'serial_number', 'inventory_number')
         }),
         ('Описание проблемы', {
-            'fields': ('defect_description', 'audio_description')
+            'fields': ('defect_description',)
         }),
         ('Ремонт', {
             'fields': ('guarantee_type', 'assigned_specialist', 'status', 'priority')

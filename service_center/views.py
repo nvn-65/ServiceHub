@@ -23,7 +23,17 @@ def login_view(request):
     Представление для входа пользователя.
     """
     if request.user.is_authenticated:
-        return redirect('roles')
+        # Проверяем, есть ли у пользователя роль Приёмщик
+        has_receiver_role = UserRole.objects.filter(
+            user=request.user,
+            role__name='Приёмщик',
+            is_active=True
+        ).exists()
+
+        if has_receiver_role:
+            return redirect('receiver_dashboard')
+        else:
+            return redirect('roles')
 
     if request.method == 'POST':
         form = AuthenticationForm(request, data=request.POST)
@@ -35,7 +45,18 @@ def login_view(request):
             if user is not None:
                 login(request, user)
                 messages.success(request, f'Добро пожаловать, {username}!')
-                return redirect('roles')
+
+                # Проверяем, есть ли у пользователя роль Приёмщик
+                has_receiver_role = UserRole.objects.filter(
+                    user=user,
+                    role__name='Приёмщик',
+                    is_active=True
+                ).exists()
+
+                if has_receiver_role:
+                    return redirect('receiver_dashboard')
+                else:
+                    return redirect('roles')
             else:
                 messages.error(request, 'Неверное имя пользователя или пароль.')
         else:
@@ -122,7 +143,7 @@ def create_reception_act(request):
 
     if not has_receiver_role:
         messages.error(request, 'У вас нет прав для доступа к этой странице.')
-        return redirect('roles')
+        return redirect('receiver_dashboard')
 
     # Генерация номера акта
     act_number = generate_act_number()
@@ -151,6 +172,7 @@ def create_reception_act(request):
             with transaction.atomic():
                 # Получаем данные из формы
                 data = request.POST
+                print("POST данные:", dict(data))  # Для отладки
 
                 # Обработка клиента
                 client_id = data.get('client_id')
@@ -161,6 +183,7 @@ def create_reception_act(request):
                     client.phone = data.get('phone', '')
                     client.email = data.get('email', '')
                     client.save()
+                    print(f"Клиент обновлен: {client.short_name}")  # Для отладки
                 else:
                     raise ValueError("Клиент не выбран")
 
@@ -168,13 +191,14 @@ def create_reception_act(request):
                 act = ReceptionAct.objects.create(
                     act_number=act_number,
                     client=client,
-                    receiver=request.user,
-                    guarantee_type='NONE'
+                    receiver=request.user
                 )
+                print(f"Акт создан: {act.act_number}")  # Для отладки
 
                 # Обработка оборудования
                 equipment_count = int(data.get('equipment_count', 0))
                 equipment_saved = False
+                print(f"Количество оборудования: {equipment_count}")  # Для отладки
 
                 for i in range(equipment_count):
                     category_id = data.get(f'equipment_{i}_category')
@@ -182,32 +206,44 @@ def create_reception_act(request):
                     model_id = data.get(f'equipment_{i}_model')
                     serial_number = data.get(f'equipment_{i}_serial_number', 'Без номера')
                     inventory_number = data.get(f'equipment_{i}_inventory_number', '')
-                    guarantee_type = data.get(f'equipment_{i}_guarantee', 'NONE')
+                    guarantee_type = data.get(f'equipment_{i}_guarantee_type', 'NONE')
                     defect_description = data.get(f'equipment_{i}_defect_description', '')
 
-                    if model_id:
-                        equipment_model = EquipmentModel.objects.get(id=model_id)
+                    print(
+                        f"Оборудование {i}: category={category_id}, brand={brand_id}, model={model_id}")  # Для отладки
 
-                        ReceivedEquipment.objects.create(
-                            reception_act=act,
-                            model=equipment_model,
-                            serial_number=serial_number,
-                            inventory_number=inventory_number,
-                            defect_description=defect_description,
-                            guarantee_type=guarantee_type,
-                            status='WAITING',
-                            priority=0
-                        )
-                        equipment_saved = True
+                    # Проверяем, что модель выбрана
+                    if model_id and model_id != '' and model_id != 'new_model':
+                        try:
+                            equipment_model = EquipmentModel.objects.get(id=model_id)
+
+                            ReceivedEquipment.objects.create(
+                                reception_act=act,
+                                model=equipment_model,
+                                serial_number=serial_number,
+                                inventory_number=inventory_number,
+                                defect_description=defect_description,
+                                guarantee_type=guarantee_type,
+                                status='WAITING',
+                                priority=0
+                            )
+                            equipment_saved = True
+                            print(f"Оборудование {i} сохранено: {equipment_model.name}")  # Для отладки
+                        except EquipmentModel.DoesNotExist:
+                            print(f"Ошибка: модель с ID {model_id} не найдена")
+                        except Exception as e:
+                            print(f"Ошибка при сохранении оборудования {i}: {str(e)}")
 
                 if not equipment_saved:
                     raise ValueError("Не добавлено ни одного оборудования")
 
                 messages.success(request, f'Акт №{act_number} успешно создан!')
-                return redirect('roles')
+                return redirect('receiver_dashboard')
 
         except Exception as e:
+            print(f"Ошибка при сохранении акта: {str(e)}")  # Для отладки
             messages.error(request, f'Ошибка при сохранении акта: {str(e)}')
+            # Возвращаем на ту же страницу с сохраненными данными
 
     # Подготовка контекста для GET запроса
     month_names = {
@@ -445,3 +481,36 @@ def add_model(request):
             'success': False,
             'error': str(e)
         })
+
+
+@login_required
+def receiver_dashboard_view(request):
+    """
+    Панель управления для приёмщика.
+    """
+    # Проверяем, есть ли у пользователя роль Приёмщик
+    has_receiver_role = UserRole.objects.filter(
+        user=request.user,
+        role__name='Приёмщик',
+        is_active=True
+    ).exists()
+
+    if not has_receiver_role:
+        messages.error(request, 'У вас нет прав для доступа к этой странице.')
+        return redirect('roles')
+
+    # Получаем оборудование готовое к выдаче (статус READY)
+    ready_equipment = ReceivedEquipment.objects.filter(
+        status='READY'
+    ).select_related(
+        'reception_act__client',
+        'model__brand',
+        'model__category'
+    ).order_by('-created_at')
+
+    context = {
+        'page_title': 'Панель приёмщика',
+        'ready_equipment': ready_equipment,
+    }
+
+    return render(request, 'service_center/receiver_dashboard.html', context)

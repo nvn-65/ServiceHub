@@ -32,8 +32,8 @@
                 <ul class="navbar-nav me-auto">
                     {% if user.is_authenticated %}
                         <li class="nav-item">
-                            <a class="nav-link" href="{% url 'roles' %}">
-                                <i class="bi bi-person-badge"></i> Мои роли
+                            <a class="nav-link" href="{% url 'receiver_dashboard' %}">
+                                <i class="bi bi-person-badge"></i> Панель приёмщика
                             </a>
                         </li>
                     {% endif %}

@@ -12,6 +12,9 @@ urlpatterns = [
     path('roles/', views.roles_view, name='roles'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
 
+    # Панель управления приёмщика
+    path('receiver-dashboard/', views.receiver_dashboard_view, name='receiver_dashboard'),
+
     # Добавляем путь для создания акта приёмки
     path('reception/create/', views.create_reception_act, name='create_reception_act'),
 
