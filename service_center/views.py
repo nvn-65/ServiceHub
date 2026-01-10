@@ -12,11 +12,10 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from django.utils import timezone
-from django.db.models import Max
 from .models import UserRole, Client, EquipmentCategory, Brand, EquipmentModel, ReceptionAct, ReceivedEquipment
 import json
-from datetime import datetime
-
+from datetime import timedelta
+from django.db.models import Count
 
 def login_view(request):
     """
@@ -508,9 +507,271 @@ def receiver_dashboard_view(request):
         'model__category'
     ).order_by('-created_at')
 
+    # Получаем акты приёмки за последние 3 дня
+    three_days_ago = timezone.now() - timedelta(days=3)
+    recent_acts = ReceptionAct.objects.filter(
+        created_at__gte=three_days_ago
+    ).annotate(
+        equipment_count=Count('equipments')
+    ).select_related('client').order_by('-created_at')
+
     context = {
         'page_title': 'Панель приёмщика',
         'ready_equipment': ready_equipment,
+        'recent_acts': recent_acts,
     }
 
     return render(request, 'service_center/receiver_dashboard.html', context)
+
+
+@login_required
+def reception_act_detail(request, act_id):
+    """
+    Детальный просмотр акта приёмки.
+    """
+    # Проверяем, есть ли у пользователя роль Приёмщик
+    has_receiver_role = UserRole.objects.filter(
+        user=request.user,
+        role__name='Приёмщик',
+        is_active=True
+    ).exists()
+
+    if not has_receiver_role:
+        messages.error(request, 'У вас нет прав для доступа к этой странице.')
+        return redirect('receiver_dashboard')
+
+    # Получаем акт приёмки со связанными данными
+    act = get_object_or_404(
+        ReceptionAct.objects.select_related('client', 'receiver'),
+        id=act_id
+    )
+
+    # Получаем оборудование из этого акта
+    equipment_list = ReceivedEquipment.objects.filter(reception_act=act).select_related('model__brand', 'model__category')
+
+    context = {
+        'page_title': f'Акт приёмки №{act.act_number}',
+        'act': act,
+        'equipment_list': equipment_list,
+    }
+
+    return render(request, 'service_center/reception_act_detail.html', context)
+
+
+@login_required
+def coordinator_dashboard_view(request):
+    """
+    Панель управления для координатора.
+    """
+    # Проверяем, есть ли у пользователя роль Координатор
+    has_coordinator_role = UserRole.objects.filter(
+        user=request.user,
+        role__name='Координатор',
+        is_active=True
+    ).exists()
+
+    if not has_coordinator_role:
+        messages.error(request, 'У вас нет прав для доступа к этой странице.')
+        return redirect('roles')
+
+    # Получаем оборудование со всеми статусами кроме 'ISSUED' (выдано)
+    equipment_list = ReceivedEquipment.objects.exclude(
+        status='ISSUED'
+    ).select_related(
+        'reception_act__client',
+        'model__brand',
+        'model__category'
+    ).order_by('created_at')  # старые сверху
+
+    # Вычисляем количество дней в ремонте для каждого оборудования
+    today = timezone.now().date()
+    for equipment in equipment_list:
+        # Вычисляем разницу в днях между сегодняшней датой и датой создания записи
+        equipment.days_in_repair = (today - equipment.created_at.date()).days
+
+    context = {
+        'page_title': 'Панель координатора',
+        'equipment_list': equipment_list,
+    }
+
+    return render(request, 'service_center/coordinator_dashboard.html', context)
+
+
+@login_required
+@require_POST
+@csrf_exempt
+def update_equipment_priority(request):
+    """
+    API endpoint для обновления приоритета оборудования.
+    """
+    try:
+        data = json.loads(request.body)
+        equipment_id = data.get('equipment_id')
+        priority = data.get('priority')
+
+        if not equipment_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Не указано оборудование'
+            })
+
+        if priority not in [0, 1, 3]:  # Разрешённые значения приоритета
+            return JsonResponse({
+                'success': False,
+                'error': 'Недопустимое значение приоритета'
+            })
+
+        # Проверяем, есть ли у пользователя роль Координатор
+        has_coordinator_role = UserRole.objects.filter(
+            user=request.user,
+            role__name='Координатор',
+            is_active=True
+        ).exists()
+
+        if not has_coordinator_role:
+            return JsonResponse({
+                'success': False,
+                'error': 'У вас нет прав для выполнения этой операции'
+            })
+
+        equipment = ReceivedEquipment.objects.get(id=equipment_id)
+        equipment.priority = priority
+        equipment.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Приоритет обновлён'
+        })
+
+    except ReceivedEquipment.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Оборудование не найдено'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@login_required
+@require_POST
+@csrf_exempt
+def update_equipment_status(request):
+    """
+    API endpoint для обновления статуса оборудования.
+    """
+    try:
+        data = json.loads(request.body)
+        equipment_id = data.get('equipment_id')
+        status = data.get('status')
+
+        if not equipment_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Не указано оборудование'
+            })
+
+        # Проверяем, есть ли у пользователя роль Координатор
+        has_coordinator_role = UserRole.objects.filter(
+            user=request.user,
+            role__name='Координатор',
+            is_active=True
+        ).exists()
+
+        if not has_coordinator_role:
+            return JsonResponse({
+                'success': False,
+                'error': 'У вас нет прав для выполнения этой операции'
+            })
+
+        equipment = ReceivedEquipment.objects.get(id=equipment_id)
+
+        # Проверяем, что статус допустимый
+        valid_statuses = dict(ReceivedEquipment.STATUS_CHOICES).keys()
+        if status not in valid_statuses:
+            return JsonResponse({
+                'success': False,
+                'error': 'Недопустимый статус'
+            })
+
+        equipment.status = status
+        equipment.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Статус обновлён'
+        })
+
+    except ReceivedEquipment.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Оборудование не найдено'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })
+
+
+@login_required
+@require_POST
+@csrf_exempt
+def update_equipment_guarantee(request):
+    """
+    API endpoint для обновления типа гарантии оборудования.
+    """
+    try:
+        data = json.loads(request.body)
+        equipment_id = data.get('equipment_id')
+        guarantee_type = data.get('guarantee_type')
+
+        if not equipment_id:
+            return JsonResponse({
+                'success': False,
+                'error': 'Не указано оборудование'
+            })
+
+        # Проверяем, есть ли у пользователя роль Координатор
+        has_coordinator_role = UserRole.objects.filter(
+            user=request.user,
+            role__name='Координатор',
+            is_active=True
+        ).exists()
+
+        if not has_coordinator_role:
+            return JsonResponse({
+                'success': False,
+                'error': 'У вас нет прав для выполнения этой операции'
+            })
+
+        equipment = ReceivedEquipment.objects.get(id=equipment_id)
+
+        # Проверяем, что тип гарантии допустимый
+        valid_guarantee_types = dict(ReceivedEquipment.GUARANTEE_CHOICES).keys()
+        if guarantee_type not in valid_guarantee_types:
+            return JsonResponse({
+                'success': False,
+                'error': 'Недопустимый тип гарантии'
+            })
+
+        equipment.guarantee_type = guarantee_type
+        equipment.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Тип гарантии обновлён'
+        })
+
+    except ReceivedEquipment.DoesNotExist:
+        return JsonResponse({
+            'success': False,
+            'error': 'Оборудование не найдено'
+        })
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        })

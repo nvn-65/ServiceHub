@@ -311,12 +311,12 @@ class ReceptionAct(models.Model):
     Один акт может содержать несколько единиц оборудования.
 
     Attributes:
-        GUARANTEE_CHOICES: Варианты типов гарантии
+
         act_number (CharField): Уникальный номер акта
         created_at (DateTimeField): Дата и время создания акта (автоматически)
         client (ForeignKey): Клиент, сдавший оборудование
         receiver (ForeignKey): Приёмщик, оформивший акт
-        guarantee_type (CharField): Тип гарантии на уровне акта
+
         updated_at (DateTimeField): Дата и время обновления акта (автоматически)
         printed_at (DateTimeField): Дата и время печати акта (необязательное)
     """
@@ -481,9 +481,7 @@ class ReceivedEquipment(models.Model):
     def __str__(self):
         """
         Строковое представление объекта для отображения в админке и в логах.
-
-        Returns:
-            str: Модель оборудования и серийный номер
+        Returns:  str: Модель оборудования и серийный номер
         """
         return f"{self.model} (Серийный: {self.serial_number})"
 
@@ -499,17 +497,14 @@ class ReceivedEquipment(models.Model):
     def get_status_color(self):
         """
         Определяет цвет статуса для отображения в интерфейсе (Bootstrap).
-
         Каждый статус имеет свой цвет для визуального различия.
-
-        Returns:
-            str: Название класса цвета Bootstrap
+        Returns:  str: Название класса цвета Bootstrap
         """
         colors = {
-            'WAITING': 'secondary',  # Серый
+            'WAITING': 'primary',  # Серый primary
             'ASSIGNED': 'info',  # Синий
             'DIAGNOSIS': 'warning',  # Жёлтый
-            'DIAGNOSED': 'primary',  # Темно-синий
+            'DIAGNOSED': 'secondary',  # Темно-синий secondary
             'APPROVAL': 'warning',  # Жёлтый
             'PARTS': 'danger',  # Красный
             'REPAIR': 'info',  # Синий
@@ -518,6 +513,19 @@ class ReceivedEquipment(models.Model):
             'ISSUED': 'dark',  # Тёмный
         }
         return colors.get(self.status, 'secondary')
+
+    def get_guarantee_color(self):
+        """
+        Определяет цвет гарантии для отображения в интерфейсе (Bootstrap).
+        Каждая гарантия имеет свой цвет для визуального различия.
+        Returns:  str: Название класса цвета Bootstrap
+        """
+        colors = {
+            'NONE': 'primary',  # Серый
+            'SERVICE': 'warning',  # Жёлтый
+            'FACTORY': 'danger',  # Красный
+            }
+        return colors.get(self.guarantee_type, 'secondary')
 
     class Meta:
         """

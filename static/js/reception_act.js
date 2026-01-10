@@ -50,9 +50,9 @@ $(document).ready(function() {
                 <div class="col-md-4">
                     <label class="form-label">Гарантия</label>
                     <select class="form-select equipment-guarantee">
-                        <option value="NONE">Без гарантии</option>
-                        <option value="FACTORY">Заводская гарантия</option>
-                        <option value="SERVICE">Гарантия сервисного центра</option>
+                        <option value="DEFAULT">Без гарантии</option>
+                        <option value="WARNING">Заводская гарантия</option>
+                        <option value="DANGER">Гарантия сервисного центра</option>
                     </select>
                 </div>
             </div>
