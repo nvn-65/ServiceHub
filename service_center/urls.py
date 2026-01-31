@@ -24,6 +24,11 @@ urlpatterns = [
     # Панель управления координатора
     path('coordinator-dashboard/', views.coordinator_dashboard_view, name='coordinator_dashboard'),
 
+    path('electronic/dashboard/', views.electronic_dashboard, name='electronic_dashboard'),
+    path('electronic/update-status/', views.update_equipment_status, name='update_equipment_status'),
+    path('electronic/add-diagnosis/', views.add_diagnosis, name='add_diagnosis'),
+    path('electronic/complete-repair/', views.complete_repair, name='complete_repair'),
+
     # API для добавления нового клиента
     path('api/add-client/', views.add_client, name='add_client'),
 

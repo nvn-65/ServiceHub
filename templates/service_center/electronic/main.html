@@ -1,0 +1,73 @@
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Оборудование для обработки</h5>
+        <p class="text-muted mb-0 small">Цех электроники. Сортировка: сверху старые записи</p>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Клиент</th>
+                        <th>Оборудование</th>
+                        <th>Статус</th>
+                        <th>Пользователь</th>
+                        <th>Действия</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for equipment in main_equipment %}
+                    <tr>
+                        <td>{{ equipment.reception_act.created_at|date:"d.m.Y H:i" }}</td>
+                        <td>{{ equipment.reception_act.client.short_name }}</td>
+                        <td>{{ equipment.get_full_name }}</td>
+                        <td>
+                            <span class="badge bg-{{ equipment.get_status_color }}">
+                                {{ equipment.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if equipment.assigned_specialist %}
+                                {{ equipment.assigned_specialist.user.get_full_name|default:equipment.assigned_specialist.user.username }}
+                            {% else %}
+                                <span class="text-muted">Не назначен</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if equipment.status == 'WAITING' %}
+                                <button type="button" class="btn btn-warning btn-sm"
+                                        data-bs-toggle="modal" data-bs-target="#statusModal"
+                                        data-equipment-id="{{ equipment.id }}"
+                                        data-current-status="{{ equipment.status }}">
+                                    Взять на диагностику
+                                </button>
+                            {% elif equipment.status == 'DIAGNOSIS' %}
+                                <button type="button" class="btn btn-info btn-sm"
+                                        data-bs-toggle="modal" data-bs-target="#statusModal"
+                                        data-equipment-id="{{ equipment.id }}"
+                                        data-current-status="{{ equipment.status }}">
+                                    Завершить диагностику
+                                </button>
+                            {% elif equipment.status == 'REPAIR' %}
+                                <button type="button" class="btn btn-success btn-sm"
+                                        data-bs-toggle="modal" data-bs-target="#statusModal"
+                                        data-equipment-id="{{ equipment.id }}"
+                                        data-current-status="{{ equipment.status }}">
+                                    Завершить ремонт
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-3">
+                            Нет оборудования для обработки
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,49 @@
+<div class="card">
+    <div class="card-header">
+        <h5 class="card-title mb-0">Архив выполненных работ</h5>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm">
+                <thead>
+                    <tr>
+                        <th>Дата завершения</th>
+                        <th>Клиент</th>
+                        <th>Оборудование</th>
+                        <th>Статус</th>
+                        <th>Работы выполнены</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for equipment in archive_equipment %}
+                    <tr>
+                        <td>{{ equipment.updated_at|date:"d.m.Y H:i" }}</td>
+                        <td>{{ equipment.reception_act.client.short_name }}</td>
+                        <td>{{ equipment.get_full_name }}</td>
+                        <td>
+                            <span class="badge bg-{{ equipment.get_status_color }}">
+                                {{ equipment.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if equipment.repair_notes %}
+                                {{ equipment.repair_notes|truncatechars:100 }}
+                            {% elif equipment.diagnosis_result %}
+                                Диагностика
+                            {% else %}
+                                ---
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-3">
+                            Архив пуст
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>

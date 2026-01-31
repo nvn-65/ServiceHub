@@ -12,6 +12,8 @@ from django.views.decorators.http import require_POST
 from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
 from django.utils import timezone
+
+from .decorators import role_required
 from .models import UserRole, Client, EquipmentCategory, Brand, EquipmentModel, ReceptionAct, ReceivedEquipment
 import json
 from datetime import timedelta
@@ -775,3 +777,148 @@ def update_equipment_guarantee(request):
             'success': False,
             'error': str(e)
         })
+
+
+def workshop_dashboard_view(request):
+    return render(request, 'service_center/repair.html', {})
+
+
+@login_required
+@role_required('Электронщик')
+def electronic_dashboard(request):
+    # Получаем категории электронного цеха
+    electronic_categories = EquipmentCategory.objects.filter(department='ELECTRON')
+
+    # Оборудование для вкладки "Главная"
+    main_equipment = ReceivedEquipment.objects.filter(
+        model__category__in=electronic_categories,
+        status__in=['WAITING', 'DIAGNOSIS', 'REPAIR']
+    ).order_by('created_at')  # Сортировка сверху старые
+
+    # Оборудование для вкладки "Диагностика"
+    diag_equipment = ReceivedEquipment.objects.filter(
+        model__category__in=electronic_categories,
+        status='DIAGNOSIS'
+    ).order_by('created_at')
+
+    # Оборудование для вкладки "Ремонт"
+    repair_equipment = ReceivedEquipment.objects.filter(
+        model__category__in=electronic_categories,
+        status='REPAIR'
+    ).order_by('created_at')
+
+    # Оборудование для вкладки "Архив"
+    archive_equipment = ReceivedEquipment.objects.filter(
+        model__category__in=electronic_categories,
+        status__in=['DIAGNOSED', 'TESTING', 'READY', 'ISSUED']
+    ).order_by('-updated_at')
+
+    context = {
+        'main_equipment': main_equipment,
+        'diag_equipment': diag_equipment,
+        'repair_equipment': repair_equipment,
+        'archive_equipment': archive_equipment,
+    }
+
+    return render(request, 'service_center/electronic_dashboard.html', context)
+
+
+@login_required
+@role_required('Электронщик')
+def update_equipment_status(request):
+    if request.method == 'POST':
+        equipment_id = request.POST.get('equipment_id')
+        new_status = request.POST.get('new_status')
+        notes = request.POST.get('notes', '')
+
+        try:
+            equipment = ReceivedEquipment.objects.get(id=equipment_id)
+
+            # Проверяем, что оборудование относится к цеху электроники
+            if equipment.model.category.department != 'ELECTRON':
+                messages.error(request, 'Оборудование не относится к цеху электроники')
+                return redirect('electronic_dashboard')
+
+            # Получаем роль электронщика текущего пользователя
+            user_role = UserRole.objects.get(user=request.user, role__name='Электронщик', is_active=True)
+
+            # Обновляем статус и назначаем специалиста
+            equipment.status = new_status
+            equipment.assigned_specialist = user_role
+            equipment.updated_at = timezone.now()
+
+            if notes:
+                equipment.repair_notes = notes
+
+            equipment.save()
+
+            messages.success(request, f'Статус оборудования обновлен на "{equipment.get_status_display()}"')
+
+        except ReceivedEquipment.DoesNotExist:
+            messages.error(request, 'Оборудование не найдено')
+        except UserRole.DoesNotExist:
+            messages.error(request, 'У вас нет активной роли электронщика')
+
+    return redirect('electronic_dashboard')
+
+
+@login_required
+@role_required('Электронщик')
+def add_diagnosis(request):
+    if request.method == 'POST':
+        equipment_id = request.POST.get('equipment_id')
+        diagnosis_result = request.POST.get('diagnosis_result')
+        required_parts = request.POST.get('required_parts')
+        estimated_cost = request.POST.get('estimated_cost')
+
+        try:
+            equipment = ReceivedEquipment.objects.get(id=equipment_id)
+
+            # Сохраняем результаты диагностики
+            equipment.diagnosis_result = diagnosis_result
+            equipment.required_parts = required_parts
+
+            if estimated_cost:
+                equipment.estimated_cost = estimated_cost
+
+            # Меняем статус на "Диагностировано"
+            equipment.status = 'DIAGNOSED'
+            equipment.updated_at = timezone.now()
+
+            equipment.save()
+
+            messages.success(request, 'Результаты диагностики сохранены')
+
+        except ReceivedEquipment.DoesNotExist:
+            messages.error(request, 'Оборудование не найдено')
+
+    return redirect('electronic_dashboard')
+
+
+@login_required
+@role_required('Электронщик')
+def complete_repair(request):
+    if request.method == 'POST':
+        equipment_id = request.POST.get('equipment_id')
+        repair_notes = request.POST.get('repair_notes')
+        test_results = request.POST.get('test_results')
+
+        try:
+            equipment = ReceivedEquipment.objects.get(id=equipment_id)
+
+            # Сохраняем информацию о ремонте
+            equipment.repair_notes = repair_notes
+            equipment.test_results = test_results
+
+            # Меняем статус на "Ремонт закончен"
+            equipment.status = 'TESTING'
+            equipment.updated_at = timezone.now()
+
+            equipment.save()
+
+            messages.success(request, 'Ремонт успешно завершен')
+
+        except ReceivedEquipment.DoesNotExist:
+            messages.error(request, 'Оборудование не найдено')
+
+    return redirect('electronic_dashboard')

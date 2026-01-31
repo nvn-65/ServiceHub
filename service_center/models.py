@@ -478,6 +478,17 @@ class ReceivedEquipment(models.Model):
     # Дата и время последнего обновления записи
     updated_at = models.DateTimeField(auto_now=True, verbose_name="Дата обновления")
 
+    # Поля для диагностики и ремонта
+    diagnosis_result = models.TextField(blank=True, null=True, verbose_name="Результат диагностики")
+    required_parts = models.TextField(blank=True, null=True, verbose_name="Необходимые запчасти")
+    estimated_cost = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True,
+                                         verbose_name="Примерная стоимость ремонта")
+    repair_notes = models.TextField(blank=True, null=True, verbose_name="Выполненные работы")
+    test_results = models.CharField(max_length=20, choices=[
+        ('PASSED', 'Исправно'),
+        ('FAILED', 'Требует доработки'),
+    ], blank=True, null=True, verbose_name="Результаты проверки")
+
     def __str__(self):
         """
         Строковое представление объекта для отображения в админке и в логах.

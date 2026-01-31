@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Панель электронщика - ServiceHub{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1 class="h3 mb-0">Панель электронщика</h1>
+        <div>
+            <span class="badge bg-primary">{{ user.get_full_name|default:user.username }}</span>
+            <a href="{% url 'logout' %}" class="btn btn-outline-danger btn-sm ms-2">Выйти</a>
+        </div>
+    </div>
+
+    <!-- Вкладки Bootstrap 5.3 -->
+    <ul class="nav nav-tabs" id="electronicTab" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="main-tab" data-bs-toggle="tab" data-bs-target="#main" 
+                    type="button" role="tab" aria-controls="main" aria-selected="true">
+                Главная
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="diag-tab" data-bs-toggle="tab" data-bs-target="#diag" 
+                    type="button" role="tab" aria-controls="diag" aria-selected="false">
+                Диагностика
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="repair-tab" data-bs-toggle="tab" data-bs-target="#repair" 
+                    type="button" role="tab" aria-controls="repair" aria-selected="false">
+                Ремонт
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link" id="archive-tab" data-bs-toggle="tab" data-bs-target="#archive" 
+                    type="button" role="tab" aria-controls="archive" aria-selected="false">
+                Архив
+            </button>
+        </li>
+    </ul>
+
+    <!-- Содержимое вкладок -->
+    <div class="tab-content mt-3" id="electronicTabContent">
+        <div class="tab-pane fade show active" id="main" role="tabpanel" aria-labelledby="main-tab">
+            {% include 'service_center/electronic/main.html' %}
+        </div>
+        <div class="tab-pane fade" id="diag" role="tabpanel" aria-labelledby="diag-tab">
+            {% include 'service_center/electronic/diag.html' %}
+        </div>
+        <div class="tab-pane fade" id="repair" role="tabpanel" aria-labelledby="repair-tab">
+            {% include 'service_center/electronic/repair.html' %}
+        </div>
+        <div class="tab-pane fade" id="archive" role="tabpanel" aria-labelledby="archive-tab">
+            {% include 'service_center/electronic/archive.html' %}
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно для смены статуса -->
+<div class="modal fade" id="statusModal" tabindex="-1" aria-labelledby="statusModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="statusModalLabel">Смена статуса оборудования</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="post" action="{% url 'update_equipment_status' %}">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <input type="hidden" name="equipment_id" id="equipmentId">
+                    <div class="mb-3">
+                        <label for="newStatus" class="form-label">Новый статус:</label>
+                        <select class="form-select" id="newStatus" name="new_status" required>
+                            <option value="DIAGNOSIS">На диагностике</option>
+                            <option value="DIAGNOSED">Диагностировано</option>
+                            <option value="REPAIR">В ремонт</option>
+                            <option value="TESTING">Ремонт закончен</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="notes" class="form-label">Примечания:</label>
+                        <textarea class="form-control" id="notes" name="notes" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Отмена</button>
+                    <button type="submit" class="btn btn-primary">Сохранить изменения</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Инициализация вкладок
+document.addEventListener('DOMContentLoaded', function() {
+    // Сохраняем активную вкладку при перезагрузке
+    var triggerTabList = [].slice.call(document.querySelectorAll('#electronicTab button'));
+    triggerTabList.forEach(function (triggerEl) {
+        var tabTrigger = new bootstrap.Tab(triggerEl);
+        triggerEl.addEventListener('click', function (event) {
+            event.preventDefault();
+            tabTrigger.show();
+        });
+    });
+
+    // Обработчик для модального окна смены статуса
+    var statusModal = document.getElementById('statusModal');
+    if (statusModal) {
+        statusModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget;
+            var equipmentId = button.getAttribute('data-equipment-id');
+            var currentStatus = button.getAttribute('data-current-status');
+            
+            document.getElementById('equipmentId').value = equipmentId;
+            
+            // Настройка доступных статусов в зависимости от текущего
+            var statusSelect = document.getElementById('newStatus');
+            statusSelect.innerHTML = '';
+            
+            if (currentStatus === 'WAITING') {
+                statusSelect.innerHTML = '<option value="DIAGNOSIS">На диагностике</option>';
+            } else if (currentStatus === 'DIAGNOSIS') {
+                statusSelect.innerHTML = '<option value="DIAGNOSED">Диагностировано</option>';
+            } else if (currentStatus === 'REPAIR') {
+                statusSelect.innerHTML = '<option value="TESTING">Ремонт закончен</option>';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
