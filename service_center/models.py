@@ -546,3 +546,90 @@ class ReceivedEquipment(models.Model):
         ordering = ['-priority', '-created_at']
         verbose_name = "Принятое оборудование"
         verbose_name_plural = "Принятое оборудование"
+
+
+class SparePartCategory(models.Model):
+    """
+    Модель для категорий запасных частей.
+    Категории группируют запчасти по типам (резисторы, конденсаторы, диоды и т.п.).
+    """
+
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name="Название категории",
+        help_text="Например: Резисторы, Конденсаторы, Диоды"
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Описание категории",
+        help_text="Подробное описание категории и её особенностей"
+    )
+
+    def __str__(self):
+        """Строковое представление категории"""
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Категория запчастей"
+        verbose_name_plural = "Категории запчастей"
+
+
+class SparePartPackage (models.Model):
+    """
+    Корпуса радиоэлементов
+    """
+    name = models.CharField(
+        max_length=100,
+        unique=True,
+        verbose_name="Тип корпуса",
+        help_text="Например: SMD, SOIC16"
+    )
+    description = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name="Примечание",
+        help_text="Дополнительные данные"
+    )
+
+    def __str__(self):
+        """Строковое представление корпуса"""
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = "Корпус"
+        verbose_name_plural = "Корпуса"
+
+
+class SparePart(models.Model):
+    """
+        Модель для запасных частей на складе.
+        Хранит информацию о радиоэлектронных компонентах и других запчастях.
+        """
+    name = models.CharField(max_length=200, verbose_name="Наименование")
+    description = models.TextField(blank=True, null=True, verbose_name="Описание")
+    part_number = models.CharField(max_length=100, unique=True, verbose_name="Артикул/Номер детали")
+    category = models.ForeignKey(SparePartCategory, on_delete=models.PROTECT,
+                                 related_name='spare_parts', verbose_name="Категория")
+    quantity = models.IntegerField(default=0, verbose_name="Количество на складе")
+    min_quantity = models.IntegerField(default=10, verbose_name="Минимальный остаток")
+    unit_of_measure = models.CharField(max_length=20, default="шт.", verbose_name="Единица измерения")
+    storage_location = models.CharField(max_length=100, blank=True, null=True, verbose_name="Место хранения")
+    datasheet = models.FileField(upload_to='', storage=None, verbose_name="Справочные данные")
+    packaging = models.ForeignKey(SparePartPackage, on_delete=models.PROTECT, verbose_name="Корпус" )
+
+    def __str__(self):
+        return f"{self.name} ({self.part_number})"
+
+    class Meta:
+        ordering = ['category', 'name']
+        verbose_name = "Запасная часть"
+        verbose_name_plural = "Запасные части"
+        indexes = [
+            models.Index(fields=['part_number']),
+            models.Index(fields=['category', 'name']),
+            models.Index(fields=['quantity']),
+        ]
